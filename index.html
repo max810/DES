@@ -1,0 +1,39 @@
+<html>
+
+<head>
+    <title></title>
+    <link rel="stylesheet" href="src/styles.css">
+    <script defer src="https://code.jquery.com/jquery-3.3.1.js"></script>
+    <script defer src="src/algorithm.js"></script>
+    <script defer src="src/index.js"></script>
+</head>
+
+<body>
+    <div class="status">
+        <span>Status: </span><span id="status-value">Loading...</span>
+    </div>
+    <div>
+        <textarea id="key-input" placeholder="KEY"></textarea>
+    </div>
+    <div>
+        <textarea id="text-input" placeholder="PLAIN TEXT"></textarea>
+        <span>--------------></span>
+        <textarea id="text-output" readonly placeholder="ENCRYPTED TEXT" wrap="soft"></textarea>
+        <button style="vertical-align: top" id="transferInputButton">
+            |<br>
+            |<br>
+            |<br>
+            |<br>
+            |<br>
+            V
+        </button>
+    </div>
+    <div>
+        <textarea id="enc-text-input" placeholder="ENCRYPTED TEXT"></textarea>
+        <span>--------------></span>
+        <textarea id="enc-text-output" readonly placeholder="PLAIN TEXT"></textarea>
+    </div>
+    <!-- <script src="main.js"></script> -->
+</body>
+
+</html>

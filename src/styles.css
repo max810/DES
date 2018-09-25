@@ -1,0 +1,17 @@
+div {
+    margin: 20px 50px; 
+}
+
+textarea {
+    width: 400px;
+    height: 100px;
+    resize: none;
+}
+
+.textblock {
+    color: #000;
+    float: left;
+    margin: 10px;
+    min-width: 100px;
+    height: 100px;
+}
