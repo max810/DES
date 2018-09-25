@@ -7,4 +7,4 @@ This is a simple JS implementation of a symmetrical encryption algorithm DES wit
 
 * Dependencies - jQuery only, included via CDN.
   
-![Screenshot of the program](Screenshot.png)
+![Screenshot of the program](ScreenShot.png)
