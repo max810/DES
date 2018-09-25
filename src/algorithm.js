@@ -2,6 +2,7 @@ const sizeOfBlock = 64; // Unicode=16, 4 symbols
 const sizeOfChar = 16; // Unicode=16
 const lengthOfBlock = sizeOfBlock / sizeOfChar;
 const quantityOfRounds = 16;
+const keyLength = 56;
 
 const keyShifts = "1	1	2	2	2	2	2	2	1	2	2	2	2	2	2	1".split(/\s+/);
 const keyShiftsReversed = "0	1	2	2	2	2	2	2	1	2	2	2	2	2	2	1".split(/\s+/);
@@ -96,9 +97,9 @@ const Stables = [
     ],
 ];
 
-console.log();
+//------------Data preparation functions-------------------------------
 
-function expandString(str) {
+function expandStringTo64bits(str) {
     while (((str.length * sizeOfChar) % sizeOfBlock) != 0) {
         str += "%";
     }
@@ -106,22 +107,23 @@ function expandString(str) {
     return str;
 }
 
-function keyToBlocks(keyStr, textBinaryLength) {
+function keyStrToBinaryBlocks(keyStr, textBinaryLength) {
     keyStr = strToBinary(keyStr, sizeOfChar);
-    if(keyStr.length < 56) {
-        keyStr = expandLeftZero(keyStr, 56);
+    if (keyStr.length < keyLength) {
+        keyStr = expandStrLeftZero(keyStr, keyLength);
     }
 
     let textBlocksCount = textBinaryLength / 64;
-    let keyBlocks = keyStr.match(/.{56}/g);
-    for(let i = 0; keyBlocks.length < textBlocksCount; i++) {
+    let keyBlocksRegex = new RegExp(`.{${keyLength}}`, "g");
+    let keyBlocks = keyStr.match(keyBlocksRegex);
+    for (let i = 0; keyBlocks.length < textBlocksCount; i++) {
         keyBlocks.push(keyBlocks[i]);
     }
 
     return keyBlocks;
 }
 
-function expandLeftZero(str, lenNeeded) {
+function expandStrLeftZero(str, lenNeeded) {
     // add zeros at the beginning until it's of needed size
     while (str.length < lenNeeded) {
         str = "0" + str;
@@ -130,7 +132,20 @@ function expandLeftZero(str, lenNeeded) {
     return str;
 }
 
-function splitBlocks(str) {
+function expandKeyUnevenBits(str) {
+    // split each 7 characters
+    let bytes = str.match(/.{7}/g);
+    for (let i = 0; i < bytes.length; i++) {
+        // let ones = bytes[i].split('').reduce((acc, x) => acc + parseInt(x), 0);
+        // [] - in case we have all 0s
+        let ones = (bytes[i].match(/1/g) || []).length;
+        bytes[i] += ones % 2 == 0 ? 1 : 0;
+    }
+
+    return bytes.join('');
+}
+
+function splitTextIntoBinaryBlocks(str) {
     let blocks = [];
     for (let i = 0; i < str.length / lengthOfBlock; i++) {
         let block = str.substr(i * lengthOfBlock, lengthOfBlock);
@@ -140,7 +155,7 @@ function splitBlocks(str) {
     return blocks;
 }
 
-function splitBlocksBinary(str) {
+function splitBinaryTextIntoBinaryBlocks(str) {
     let blocks = [];
     let size = str.length / sizeOfBlock;
     for (let i = 0; i < size; i++) {
@@ -166,7 +181,7 @@ function codesToBinary(codes, size) {
 
     for (let i = 0; i < codes.length; i++) {
         let charBinary = codes[i].toString(2);
-        charBinary = expandLeftZero(charBinary, size);
+        charBinary = expandStrLeftZero(charBinary, size);
 
         output += charBinary;
     }
@@ -174,30 +189,28 @@ function codesToBinary(codes, size) {
     return output;
 }
 
-function fromBinary(str) {
+function charCodesFromBinary(str) {
     let regex = new RegExp(`.{${sizeOfChar}}`, "g");
     let charCodesBinary = str.match(regex);
     let charCodes = charCodesBinary.map(x => parseInt(x, 2));
-    // let chars = charCodes.map(String.fromCharCode);
 
-    return charCodes.join(', ');
+    return charCodes;
 }
 
-// -------------------------------------
+//------------------Algorithm---------------------------------
 
 function runDESEncode(str, key) {
-    str = expandString(str);
-    // str = toBinary(str); not needed, is inside of split 
-    let blocks = splitBlocks(str);
+    str = expandStringTo64bits(str);
+    let blocks = splitTextIntoBinaryBlocks(str);
     blocks = blocks.map(IP);
 
-    let keys = keyToBlocks(key, blocks.length * 64);
-    for(let i = 0; i < keys.length; i++) {
-        keys[i] = extendKeyUnevenBits(keys[i]);
+    let keys = keyStrToBinaryBlocks(key, blocks.length * 64);
+    for (let i = 0; i < keys.length; i++) {
+        keys[i] = expandKeyUnevenBits(keys[i]);
     }
 
     let textBinary = DESEncode(blocks, keys);
-    let resultText = fromBinary(textBinary, sizeOfChar / 2);
+    let resultText = charCodesFromBinary(textBinary, sizeOfChar / 2).join(', ');
 
     return resultText;
 }
@@ -205,23 +218,21 @@ function runDESEncode(str, key) {
 function runDESDecode(strCodes, key) {
     // str = expandString(str);
     let strBinary = codesToBinary(strCodes, sizeOfChar);
-    let blocks = splitBlocksBinary(strBinary);
+    let blocks = splitBinaryTextIntoBinaryBlocks(strBinary);
     blocks = blocks.map(IP);
 
-    let keys = keyToBlocks(key, blocks.length * 64);
-    for(let i = 0; i < keys.length; i++) {
-        keys[i] = extendKeyUnevenBits(keys[i]);
+    let keys = keyStrToBinaryBlocks(key, blocks.length * 64);
+    for (let i = 0; i < keys.length; i++) {
+        keys[i] = expandKeyUnevenBits(keys[i]);
     }
 
     let resultTextBinary = DESDecode(blocks, keys);
     // for 64 = 16 x 4 = 4 chars
-    let resultCodes = fromBinary(resultTextBinary).split(',');
+    let resultCodes = charCodesFromBinary(resultTextBinary);
     let resultChars = resultCodes.map(x => String.fromCharCode(x));
     let resultText = resultChars.join('');
     return resultText;
 }
-
-// -----------------------------------
 
 function DESEncode(blocks, originalKeys) {
     console.log('\nENTROPY MEASURES\n');
@@ -261,7 +272,7 @@ function DESDecode(blocks, originalKey) {
         [keyLeft, keyRight] = shiftKeysRight(keyLeft, keyRight, i);
         for (let j = 0; j < blocks.length; j++) {
             let ithKeyPerm = keyLeft.concat(keyRight).map(i => originalKey[j][i]);
-            key = ithKey(ithKeyPerm);   
+            key = ithKey(ithKeyPerm);
             let block = blocks[j];
             let [left, right] = splitInTwo(block);
             [left, right] = decodeRound(left, right, key);
@@ -274,7 +285,7 @@ function DESDecode(blocks, originalKey) {
 }
 
 function encodeRound(left, right, key) {
-    // left, right = 32bit each
+    // left, right = 32bit each, key = 48bit
     let tmp = right;
     right = XOR(left, f(right, key));
     left = tmp;
@@ -303,18 +314,17 @@ function f(right, key) {
     return result;
 }
 
-function extendKeyUnevenBits(str) {
-    // split each 7 characters
-    let bytes = str.match(/.{7}/g);
-    for (let i = 0; i < bytes.length; i++) {
-        // let ones = bytes[i].split('').reduce((acc, x) => acc + parseInt(x), 0);
-        // [] - in case we have all 0s
-        let ones = (bytes[i].match(/1/g) || []).length;
-        bytes[i] += ones % 2 == 0 ? 1 : 0;
+function XOR(left, right) {
+    result = [];
+    for (let i = 0; i < left.length; i++) {
+        result[i] = left[i] == right[i] ? "0" : "1";
     }
 
-    return bytes.join('');
+    return result;
 }
+
+//--------------Permutation functions--------------------------
+
 
 function keyIP(str) {
     return keyIPTable.map(i => str[i - 1]);
@@ -355,12 +365,14 @@ function S(bBlocks) {
 
         // binary representation
         let resultBlock = parseInt(Stables[i][a][b]).toString(2);
-        resultBlock = expandLeftZero(resultBlock, 4);
+        resultBlock = expandStrLeftZero(resultBlock, 4);
         resultBlocks.push(resultBlock);
     }
 
     return resultBlocks;
 }
+
+//--------------Key shifts-------------------------
 
 function shiftKeysLeft(left, right, i) {
     left = shiftArray(left, -keyShifts[i]);
@@ -389,14 +401,8 @@ function shiftArray(key, len) {
     return key;
 }
 
-function XOR(left, right) {
-    result = [];
-    for (let i = 0; i < left.length; i++) {
-        result[i] = left[i] == right[i] ? "0" : "1";
-    }
-
-    return result;
-}
+//---------------Additional function-------------------------
+//--------DOES NOT CONSTITUTE THE ALGORITHM------------------
 
 function entropy(block) {
     // block = 64 bit
